@@ -1,48 +1,71 @@
-import cv2 
-import numpy
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
 
-image_path = "C:/Users/Usuario/Desktop/ProyectoCN/Pregunta1/avion.jpg"  # Replace with your actual path
-image = cv2.imread(image_path)
+# Ruta de la imagen
+ruta_imagen = 'C:/Users/Usuario/Desktop/ProyectoCN/Pregunta1/avion.jpg'
 
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Leer la imagen
+imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
+imagen_color = cv2.imread(ruta_imagen)
 
-
-thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)[1]  
-gray = cv2.GaussianBlur(gray, (5, 5), 0)
-
-thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)[1]
-
-
-contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-
-largest_contour = None
-largest_contour_area = 0
-
-for cnt in contours:
-    area = cv2.contourArea(cnt)
-    if area > largest_contour_area:
-        largest_contour_area = area
-        largest_contour = cnt
-
-all_points = largest_contour.reshape(-1, 2)
-
-# Estimate upper body height as a fraction of image height (adjust as needed)
-upper_body_fraction = 0.6  # Experiment with this value
-
-upper_body_height = int(image.shape[0] * upper_body_fraction)
-upper_body_points = all_points[all_points[:, 1] < upper_body_height]
+if imagen is None:
+    print(f"Error: No se pudo leer la imagen '{ruta_imagen}'.")
+else:
+        # Si es necesario, rotar la imagen
+    imagen = cv2.rotate(imagen, cv2.ROTATE_180)
 
 
-hull = cv2.convexHull(upper_body_points)
+    # Aplicar umbral
+    _, umbral = cv2.threshold(imagen, 127, 255, cv2.THRESH_BINARY)
 
-# Option 1: Spline interpolation
-spline = cv2.approxPolyDP(hull, epsilon=0.01 * cv2.arcLength(hull, True), closed=True)
+    # Encontrar contornos
+    contornos, _ = cv2.findContours(umbral, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# Option 2: Bezier curve fitting (more complex)
-# ... implement Bezier curve fitting based on upper_body_points
+    if len(contornos) == 0:
+        print("Error: No se encontraron contornos en la imagen.")
+    else:
+        # Asumimos que el contorno más grande es la figura deseada
+        contorno = max(contornos, key=cv2.contourArea)
 
-cv2.drawContours(image, [hull], -1, (0, 255, 0), 2)  # Green color for interpolated outline
-cv2.imshow('Animal Silhouette with Interpolated Upper Body', image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+        # Extraer los puntos del contorno superior
+        contorno_superior = contorno[:, 0, :]
+        contorno_superior = sorted(contorno_superior, key=lambda x: x[0])  # Ordenar por la coordenada x
+
+        # Dividir en coordenadas X e Y
+        X = np.array([p[0] for p in contorno_superior])
+        Y = np.array([p[1] for p in contorno_superior])
+
+        # Filtrar solo la parte superior del contorno
+        filtro_superior = Y < np.mean(Y)
+        X_superior = X[filtro_superior]
+        Y_superior = Y[filtro_superior]
+
+        # Verificar si hay valores NaN en los datos
+        if np.any(np.isnan(X_superior)) or np.any(np.isnan(Y_superior)):
+            print("Error: Se encontraron valores NaN en los datos.")
+        elif len(X_superior) < 2 or len(Y_superior) < 2:
+            print("Error: No hay suficientes puntos para la interpolación.")
+        else:
+            # Asegurarse de que los puntos X sean estrictamente crecientes
+            X_unicos, indices_unicos = np.unique(X_superior, return_index=True)
+            Y_unicos = Y_superior[indices_unicos]
+
+            # Interpolación usando splines cúbicos
+            try:
+                spline = CubicSpline(X_unicos, Y_unicos)
+
+                # Generar valores para graficar el spline interpolado
+                X_interpolados = np.linspace(min(X_unicos), max(X_unicos), 1000)
+                Y_interpolados = spline(X_interpolados)
+
+                # Graficar la imagen original
+                plt.imshow(cv2.cvtColor(imagen_color, cv2.COLOR_BGR2RGB))
+                plt.plot(X_superior, Y_superior, 'o', label='Puntos del contorno superior', markersize=2)
+                plt.plot(X_interpolados, Y_interpolados, '-', label='Interpolación usando Splines Cúbicos', color='red')
+                plt.gca().invert_yaxis()  # Invertir el eje y para que la imagen se vea correctamente
+                plt.legend()
+                plt.show()
+            except Exception as e:
+                print(f"Error durante la interpolación: {e}")
