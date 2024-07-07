@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
+from interpolar import cubic_spline
+from new_interpolar import compute_spline
 
 # Ruta de la imagen
 ruta_imagen = 'avion.jpg'
@@ -38,8 +40,6 @@ if len(contornos) == 0:
 else:
         # Asumimos que el contorno más grande es la figura deseada
         contorno = max(contornos, key=cv2.contourArea)
-        cv2.drawContours(imagen, [contorno], 0, (0, 0, 255), 5) 
-        cv2.imshow('img', imagen)
 
         # Extraer los puntos del contorno superior
         contorno_superior = contorno[:, 0, :]
@@ -79,17 +79,19 @@ else:
 
             # Interpolación usando splines cúbicos
             try:
-                spline = CubicSpline(X_superior, Y_superior)
-
-                # Generar valores para graficar el spline interpolado
+            
+                spline = compute_spline(X_unicos, Y_unicos)
+            
+                    # Generar valores para graficar el spline interpolado
                 X_interpolados = np.linspace(min(X_superior), max(X_superior), 1000)
-                Y_interpolados = spline(X_interpolados)
+                    #Y_interpolados = spline(X_interpolados)
+                y_interpolados = [spline(y) for y in X_interpolados]
 
-                # Graficar la imagen original
+                    # Graficar la imagen original
                 plt.imshow(cv2.cvtColor(imagen_color, cv2.COLOR_BGR2RGB))
                 plt.plot(X_superior, Y_superior, 'o', label='Puntos del contorno superior', markersize=2)
-                plt.plot(X_interpolados, Y_interpolados, '-', label='Interpolación usando Splines Cúbicos', color='red')
-                #plt.gca().invert_yaxis()  # Invertir el eje y para que la imagen se vea correctamente
+                plt.plot(X_interpolados, y_interpolados, '-', label='Interpolación usando Splines Cúbicos', color='red')
+                    #plt.gca().invert_yaxis()  # Invertir el eje y para que la imagen se vea correctamente
                 plt.legend()
                 plt.show()
             except Exception as e:
