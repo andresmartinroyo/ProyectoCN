@@ -1,150 +1,54 @@
-import numpy as np
-import scipy
-import scipy.linalg 
-from math import sqrt
+from typing import Tuple, List
+import bisect
 
-def cubic_spline(x_data, y_data, x_interp):
-  """
-  Performs cubic spline interpolation for a given set of data points.
+def compute_changes(x: List[float]) -> List[float]:
+    return [x[i+1] - x[i] for i in range(len(x) - 1)]
 
-  Args:
-      x_data: Array of data points (x-coordinates).
-      y_data: Array of data points (y-coordinates).
-      x_interp: Array of interpolation points (x-coordinates for which to interpolate y-values).
+def create_tridiagonalmatrix(n: int, h: List[float]) -> Tuple[List[float], List[float], List[float]]:
+    A = [h[i] / (h[i] + h[i + 1]) for i in range(n - 2)] + [0]
+    B = [2] * n
+    C = [0] + [h[i + 1] / (h[i] + h[i + 1]) for i in range(n - 2)]
+    return A, B, C
+def create_target(n: int, h: List[float], y: List[float]):
+    return [0] + [6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]) / (h[i] + h[i-1]) for i in range(1, n - 1)] + [0]
+def solve_tridiagonalsystem(A: List[float], B: List[float], C: List[float], D: List[float]):
+    c_p = C + [0]
+    d_p = [0] * len(B)
+    X = [0] * len(B)
 
-  Returns:
-      y_interp: Array of interpolated y-values for the given interpolation points.
-  """
+    c_p[0] = C[0] / B[0]
+    d_p[0] = D[0] / B[0]
+    for i in range(1, len(B)):
+        c_p[i] = c_p[i] / (B[i] - c_p[i - 1] * A[i - 1])
+        d_p[i] = (D[i] - d_p[i - 1] * A[i - 1]) / (B[i] - c_p[i - 1] * A[i - 1])
 
-  # Number of data points
-  n = len(x_data)
- 
+    X[-1] = d_p[-1]
+    for i in range(len(B) - 2, -1, -1):
+        X[i] = d_p[i] - c_p[i] * X[i + 1]
 
-  # Calculate differences between consecutive x-values
-  h = np.diff(x_data)
+    return X
+def compute_spline(x: List[float], y: List[float]):
+    n = len(x)
+    if n < 3:
+        raise ValueError('Too short an array')
+    if n != len(y):
+        raise ValueError('Array lengths are different')
 
-  # Initialize empty arrays for coefficients
-  a = np.zeros(n-1)
-  b = np.zeros(n-1)
-  c = np.zeros(n-1)
-  d = np.zeros(n-1)
+    h = compute_changes(x)
+    if any(v < 0 for v in h):
+        raise ValueError('X must be strictly increasing')
 
-  # First derivative at endpoints (natural cubic splines)
-  a[0] = 0
-  c[n-2] = 0
+    A, B, C = create_tridiagonalmatrix(n, h)
+    D = create_target(n, h, y)
 
-  # Build the system of linear equations
-  for i in range(1, n-2):
-    diag = 2*(h[i] + h[i-1])
-    off_diag = h[i]
-    upper_diag = h[i-1]
-    a[i] = diag
-    b[i] = off_diag
-    c[i] = upper_diag
-    d[i] = 3*(y_data[i+1] - y_data[i]) / h[i] - 3*(y_data[i] - y_data[i-1]) / h[i-1]
+    M = solve_tridiagonalsystem(A, B, C, D)
 
-  # Solve the tridiagonal system for coefficients
-    print(np.diag(a).size)
-    print(np.diag(b[:-1],-1).size)
-    print(np.diag(c[1:], 1).size)
-    print(d.size)
+    coefficients = [[(M[i+1]-M[i])*h[i]*h[i]/6, M[i]*h[i]*h[i]/2, (y[i+1] - y[i] - (M[i+1]+2*M[i])*h[i]*h[i]/6), y[i]] for i in range(n-1)]
 
+    def spline(val):
+        idx = min(bisect.bisect(x, val)-1, n-2)
+        z = (val - x[idx]) / h[idx]
+        C = coefficients[idx]
+        return (((C[0] * z) + C[1]) * z + C[2]) * z + C[3]
 
-    result = scipy.linalg.solve( np.diag(a) + np.diag(b[:-1],-1) + np.diag(c[1:], 1), d)
-    c[1:-1] =result
-
-  # Calculate remaining coefficients
-  for i in range(1, n-1):
-    b[i] = (a[i] * c[i-1] - d[i-1]) / h[i]
-    d[i] = (d[i] - b[i] * h[i]) / a[i]
-
-  # Interpolate y-values for given points
-  y_interp = []
-  for x in x_interp:
-    i = np.searchsorted(x_data, x, side='left') - 1
-    t = (x - x_data[i]) / h[i]
-    y_interp.append(a[i]*t**3 + b[i]*t**2 + c[i]*t + d[i] + y_data[i])
-
-  return np.array(y_interp)
-
-# Example usage
-
-def cubic_interp1d(x0, x, y):
-    """
-    Interpolate a 1-D function using cubic splines.
-      x0 : a float or an 1d-array
-      x : (N,) array_like
-          A 1-D array of real/complex values.
-      y : (N,) array_like
-          A 1-D array of real values. The length of y along the
-          interpolation axis must be equal to the length of x.
-
-    Implement a trick to generate at first step the cholesky matrice L of
-    the tridiagonal matrice A (thus L is a bidiagonal matrice that
-    can be solved in two distinct loops).
-
-    additional ref: www.math.uh.edu/~jingqiu/math4364/spline.pdf 
-    """
-    x = np.asarray(x)
-    y = np.asarray(y)
-
-    # remove non finite values
-    # indexes = np.isfinite(x)
-    # x = x[indexes]
-    # y = y[indexes]
-
-    # check if sorted
-    if np.any(np.diff(x) < 0):
-        indexes = np.argsort(x)
-        x = x[indexes]
-        y = y[indexes]
-
-    size = len(x)
-
-    xdiff = np.diff(x)
-    ydiff = np.diff(y)
-
-    # allocate buffer matrices
-    Li = np.empty(size)
-    Li_1 = np.empty(size-1)
-    z = np.empty(size)
-
-    # fill diagonals Li and Li-1 and solve [L][y] = [B]
-    Li[0] = sqrt(2*xdiff[0])
-    Li_1[0] = 0.0
-    B0 = 0.0 # natural boundary
-    z[0] = B0 / Li[0]
-
-    for i in range(1, size-1, 1):
-        Li_1[i] = xdiff[i-1] / Li[i-1]
-        Li[i] = sqrt(2*(xdiff[i-1]+xdiff[i]) - Li_1[i-1] * Li_1[i-1])
-        Bi = 6*(ydiff[i]/xdiff[i] - ydiff[i-1]/xdiff[i-1])
-        z[i] = (Bi - Li_1[i-1]*z[i-1])/Li[i]
-
-    i = size - 1
-    Li_1[i-1] = xdiff[-1] / Li[i-1]
-    Li[i] = sqrt(2*xdiff[-1] - Li_1[i-1] * Li_1[i-1])
-    Bi = 0.0 # natural boundary
-    z[i] = (Bi - Li_1[i-1]*z[i-1])/Li[i]
-
-    # solve [L.T][x] = [y]
-    i = size-1
-    z[i] = z[i] / Li[i]
-    for i in range(size-2, -1, -1):
-        z[i] = (z[i] - Li_1[i-1]*z[i+1])/Li[i]
-
-    # find index
-    index = x.searchsorted(x0)
-    np.clip(index, 1, size-1, index)
-
-    xi1, xi0 = x[index], x[index-1]
-    yi1, yi0 = y[index], y[index-1]
-    zi1, zi0 = z[index], z[index-1]
-    hi1 = xi1 - xi0
-
-    # calculate cubic
-    f0 = zi0/(6*hi1)*(xi1-x0)**3 + \
-         zi1/(6*hi1)*(x0-xi0)**3 + \
-         (yi1/hi1 - zi1*hi1/6)*(x0-xi0) + \
-         (yi0/hi1 - zi0*hi1/6)*(xi1-x0)
-    return f0
+    return spline

@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import CubicSpline
-from interpolar import cubic_spline
-from new_interpolar import compute_spline
+from interpolar import compute_spline
 
 # Ruta de la imagen
 ruta_imagen = 'avion.jpg'
