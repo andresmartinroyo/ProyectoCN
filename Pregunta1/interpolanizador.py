@@ -16,6 +16,8 @@ else:
         # Si es necesario, rotar la imagen
     imagen = cv2.rotate(imagen, cv2.ROTATE_180)
 
+    # Si es necesario, rotar la imagen
+    imagen = cv2.rotate(imagen, cv2.ROTATE_180)
 
     # Aplicar umbral
     _, umbral = cv2.threshold(imagen, 127, 255, cv2.THRESH_BINARY)
