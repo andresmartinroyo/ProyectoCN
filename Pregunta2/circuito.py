@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 # Parámetros del circuito
-R = 24.25  # Resistencia total en ohmios
-L = 0.05  # Inductancia en henrios (50 mH)
+R = 2110/87  # Resistencia total en ohmios
+L = 0.0883  # Inductancia en henrios (50 mH)
 C = 10e-6  # Capacitancia en faradios (10 µF)
 omega = 60  # Velocidad angular en rad/s
 Vg_amplitude = 165  # Amplitud del voltaje de la fuente en voltios
@@ -46,12 +47,25 @@ for n in range(len(t) - 1):
 # Calcula el voltaje en la resistencia R
 V_R = R * i
 
+# Definir la función de ajuste para la corriente
+def fit_func(t, A, B, phi):
+    return A * np.sin(omega * t + phi) + B
+
+# Ajustar la curva de la corriente
+popt_i, _ = curve_fit(fit_func, t, i, p0=[1, 0, 0])
+A_i, B_i, phi_i = popt_i
+
+# Ajustar la curva del voltaje
+popt_VR, _ = curve_fit(fit_func, t, V_R, p0=[1, 0, 0])
+A_VR, B_VR, phi_VR = popt_VR
+
 # Graficar resultados
 plt.figure(figsize=(10, 8))
 
 # Gráfica de la corriente i(t)
 plt.subplot(2, 1, 1)
 plt.plot(t, i, label='i(t)')
+plt.plot(t, fit_func(t, *popt_i), 'r--', label=f'Ajuste: {A_i:.6f} sin({omega}t + {phi_i:.6f}) + {B_i:.6f}')
 plt.title('Corriente i(t)')
 plt.xlabel('Tiempo [s]')
 plt.ylabel('Corriente [A]')
@@ -60,6 +74,7 @@ plt.legend()
 # Gráfica del voltaje en la resistencia V_R(t)
 plt.subplot(2, 1, 2)
 plt.plot(t, V_R, label='V_R(t)', color='orange')
+plt.plot(t, fit_func(t, *popt_VR), 'r--', label=f'Ajuste: {A_VR:.6f} sin({omega}t + {phi_VR:.6f}) + {B_VR:.6f}')
 plt.title('Voltaje en la Resistencia V_R(t)')
 plt.xlabel('Tiempo [s]')
 plt.ylabel('Voltaje [V]')
