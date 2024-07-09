@@ -56,10 +56,22 @@ else:
         filtered_point=[]
         for x,y in highest_y_per_x.items():
             filtered_point.append([x,y])
+        diff = []
+        for i in range(len(filtered_point)):
+            diff.append(abs(filtered_point[i][1]-filtered_point[i-1][1]))
+
+        print(np.mean(diff))
+        
+        final_point=[]
+        for i in range(len(filtered_point)):
+            if(diff[i]<= np.mean(diff)):
+                final_point.append(filtered_point[i])
+       
+            
        
        
-        Y = np.array([p[1] for p in filtered_point])
-        X = np.array([p[0] for p in filtered_point])
+        Y = np.array([p[1] for p in final_point])
+        X = np.array([p[0] for p in final_point])
         
         # Filtrar solo la parte superior del contorno
         filtro_superior = Y < 160
