@@ -1,11 +1,13 @@
 import cv2
 import numpy as np
+import os
 
 def nothing(x):
     pass
-
+ruta_imagen = 'Pregunta1'
+var = os.path.abspath(ruta_imagen)+"\\avion.jpg"
 # Load image
-image = cv2.imread('avion.jpg')
+image = cv2.imread(var)
 
 # Create a window
 cv2.namedWindow('image')

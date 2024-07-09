@@ -2,15 +2,18 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from interpolar import compute_spline
+import os
+
 
 # Ruta de la imagen
-ruta_imagen = 'avion.jpg'
+ruta_imagen = 'Pregunta1'
+var = os.path.abspath(ruta_imagen)+"\\avion.jpg"
+
 
 # Leer la imagen
-imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
-imagen_color = cv2.imread(ruta_imagen)
+imagen = cv2.imread(var, cv2.IMREAD_GRAYSCALE)
+imagen_color = cv2.imread(var)
 
-   
 #img = cv2.rotate(imagen_color, cv2.ROTATE_180)
 kernel = np.ones((5,5), np.uint8)
 
@@ -38,27 +41,40 @@ if len(contornos) == 0:
 else:
         # Asumimos que el contorno más grande es la figura deseada
         contorno = max(contornos, key=cv2.contourArea)
-
         # Extraer los puntos del contorno superior
         contorno_superior = contorno[:, 0, :]
         contorno_superior = sorted(contorno_superior, key=lambda x: x[0])  # Ordenar por la coordenada x
-
-        # Dividir en coordenadas X e Y
        
+        # Dividir en coordenadas X e Y
         highest_y_per_x={}
         for p in contorno_superior:
             if p[0] not in highest_y_per_x:
                  highest_y_per_x[p[0]]=p[1]
             else:
-                highest_y_per_x[p[0]]=max(highest_y_per_x[p[0]], p[1])
+                highest_y_per_x[p[0]]=min(highest_y_per_x[p[0]], p[1])
+                
         filtered_point=[]
         for x,y in highest_y_per_x.items():
             filtered_point.append([x,y])
-        Y = np.array([p[1] for p in filtered_point])
-        X = np.array([p[0] for p in filtered_point])
+        diff = []
+        for i in range(len(filtered_point)):
+            diff.append(abs(filtered_point[i][1]-filtered_point[i-1][1]))
 
+        print(np.mean(diff))
+        
+        final_point=[]
+        for i in range(len(filtered_point)):
+            if(diff[i]<= np.mean(diff)):
+                final_point.append(filtered_point[i])
+       
+            
+       
+       
+        Y = np.array([p[1] for p in final_point])
+        X = np.array([p[0] for p in final_point])
+        
         # Filtrar solo la parte superior del contorno
-        filtro_superior = Y < np.mean(Y)
+        filtro_superior = Y < 160
         X_superior = X[filtro_superior]
         Y_superior = Y[filtro_superior]
 
