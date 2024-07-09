@@ -34,7 +34,9 @@ cv2.imshow('mask', Mask)
 _, umbral = cv2.threshold(Mask, 127, 255, cv2.THRESH_BINARY)
 
     # Encontrar contornos
-contornos, _ = cv2.findContours(Mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+print("ACAAAA",cv2.RETR_TREE)
+print(cv2.CHAIN_APPROX_NONE)
+contornos, _ = cv2.findContours(Mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
 if len(contornos) == 0:
         print("Error: No se encontraron contornos en la imagen.")
@@ -60,11 +62,10 @@ else:
         for i in range(len(filtered_point)):
             diff.append(abs(filtered_point[i][1]-filtered_point[i-1][1]))
 
-        print(np.mean(diff))
         
         final_point=[]
         for i in range(len(filtered_point)):
-            if(diff[i]<= np.mean(diff)):
+            if(diff[i] <= np.mean(diff)):
                 final_point.append(filtered_point[i])
        
             

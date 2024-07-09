@@ -7,6 +7,7 @@ def nothing(x):
 ruta_imagen = 'Pregunta1'
 var = os.path.abspath(ruta_imagen)+"\\avion.jpg"
 # Load image
+''''''
 image = cv2.imread(var)
 
 # Create a window
