@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 # Parámetros del circuito
-R = 2110/87  # Resistencia total en ohmios
-L = 0.0883  # Inductancia en henrios (50 mH)
+R = 2110 / 87  # Resistencia total en ohmios
+L = 0.0883  # Inductancia en henrios (88.3 mH)
 C = 10e-6  # Capacitancia en faradios (10 µF)
 omega = 60  # Velocidad angular en rad/s
-Vg_amplitude = 165  # Amplitud del voltaje de la fuente en voltios
+Vg_amplitude = 55  # Amplitud del voltaje de la fuente en voltios
 
 # Tiempo de simulación
 t = np.linspace(0, 0.1, 1000)  # Vector de tiempo de 0 a 0.1 segundos con 1000 puntos
@@ -44,42 +44,54 @@ for n in range(len(t) - 1):
     # Actualiza el valor de la derivada de la corriente u
     u[n + 1] = u[n] + (1/6) * (k1_u + 2 * k2_u + 2 * k3_u + k4_u)
 
-# Calcula el voltaje en la resistencia R
-V_R = R * i
+# Función de ajuste (serie de Fourier con términos sinusoidales y cosenoidales)
+def fourier_series(t, *a):
+    result = a[0]
+    n_terms = (len(a) - 1) // 2
+    for n in range(1, n_terms + 1):
+        result += a[2*n-1] * np.sin(n * omega * t) + a[2*n] * np.cos(n * omega * t)
+    return result
 
-# Definir la función de ajuste para la corriente
-def fit_func(t, A, B, phi):
-    return A * np.sin(omega * t + phi) + B
+# Estimación inicial de parámetros (por ejemplo, cero para todos)
+initial_guess = [0] * 11  # Por ejemplo, 5 términos senoidales y 5 cosenoidales más el término constante
 
-# Ajustar la curva de la corriente
-popt_i, _ = curve_fit(fit_func, t, i, p0=[1, 0, 0])
-A_i, B_i, phi_i = popt_i
+# Ajuste de curva
+params, params_covariance = curve_fit(fourier_series, t, i, p0=initial_guess)
 
-# Ajustar la curva del voltaje
-popt_VR, _ = curve_fit(fit_func, t, V_R, p0=[1, 0, 0])
-A_VR, B_VR, phi_VR = popt_VR
+# Función ajustada
+i_fit = fourier_series(t, *params)
+
+# Mostrar los parámetros de ajuste
+print("Parámetros de la serie de Fourier ajustada:")
+for n in range(len(params)):
+    print(f"a[{n}] = {params[n]}")
 
 # Graficar resultados
 plt.figure(figsize=(10, 8))
 
 # Gráfica de la corriente i(t)
 plt.subplot(2, 1, 1)
-plt.plot(t, i, label='i(t)')
-plt.plot(t, fit_func(t, *popt_i), 'r--', label=f'Ajuste: {A_i:.6f} sin({omega}t + {phi_i:.6f}) + {B_i:.6f}')
+plt.plot(t, i, label='i(t) simulada')
+plt.plot(t, i_fit, label='i(t) ajustada', linestyle='--')
 plt.title('Corriente i(t)')
 plt.xlabel('Tiempo [s]')
 plt.ylabel('Corriente [A]')
 plt.legend()
 
-# Gráfica del voltaje en la resistencia V_R(t)
-plt.subplot(2, 1, 2)
-plt.plot(t, V_R, label='V_R(t)', color='orange')
-plt.plot(t, fit_func(t, *popt_VR), 'r--', label=f'Ajuste: {A_VR:.6f} sin({omega}t + {phi_VR:.6f}) + {B_VR:.6f}')
-plt.title('Voltaje en la Resistencia V_R(t)')
-plt.xlabel('Tiempo [s]')
-plt.ylabel('Voltaje [V]')
-plt.legend()
-
 # Ajustar la disposición de las gráficas
 plt.tight_layout()
 plt.show()
+
+# Imprimir la función ajustada con desfase
+def print_fourier_series_with_phase(params):
+    terms = [f"{params[0]:.4f}"]
+    n_terms = (len(params) - 1) // 2
+    for n in range(1, n_terms + 1):
+        A_n = np.sqrt(params[2*n-1]**2 + params[2*n]**2)
+        phi_n = np.arctan2(params[2*n], params[2*n-1])
+        if A_n > 1e-4:  # Umbral para términos significativos
+            terms.append(f"{A_n:.4f} * sin({n} * 60 * t + {phi_n:.4f})")
+    return " + ".join(terms)
+
+print("Función i(t) ajustada con desfase:")
+print(f"i(t) = {print_fourier_series_with_phase(params)}")
